@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Business Income Allocator & Expense Tracker (Firebase)</title>
+<style>
+  /* =================================================================
+     CSS RESET & ROOT VARIABLES
+     ================================================================= */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  :root {
+    /* Color palette */
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --primary-light: #818cf8;
+    --bg: #f3f4f6;
+    --surface: #ffffff;
+    --surface-alt: #f9fafb;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --text-light: #9ca3af;
+    --border: #e5e7eb;
+    --danger: #ef4444;
+    --success: #10b981;
+    --warning: #f59e0b;
+
+    /* Category colors */
+    --cat-savings: #10b981;
+    --cat-rent: #3b82f6;
+    --cat-salaries: #8b5cf6;
+    --cat-utilities: #f59e0b;
+    --cat-operations: #06b6d4;
+    --cat-miscellaneous: #ec4899;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+
+    /* Radius */
+    --r-sm: 6px;
+    --r: 10px;
+    --r-lg: 14px;
+    --r-xl: 20px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+      Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* =================================================================
+     LAYOUT
+     ================================================================= */
+  .app {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  header.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .app-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .app-title .logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    border-radius: var(--r);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .app-title h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .app-title p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .auth-status {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 8px 12px;
+    background: var(--surface-alt);
+    border-radius: var(--r);
+  }
+
+  .auth-status.logged-in {
+    color: var(--success);
+  }
+
+  /* =================================================================
+     BUTTONS
+     ================================================================= */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: var(--r);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface-alt); border-color: #d1d5db; }
+  .btn:active { transform: translateY(1px); }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+  .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+  }
+  .btn-danger:hover { background: #dc2626; border-color: #dc2626; }
+
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-block { width: 100%; }
+
+  /* =================================================================
+     SUMMARY DASHBOARD
+     ================================================================= */
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--primary);
+  }
+  .stat-card.income::before { background: var(--success); }
+  .stat-card.allocated::before { background: var(--primary); }
+  .stat-card.unallocated::before { background: var(--warning); }
+  .stat-card.spent::before { background: var(--danger); }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-light);
+    margin-top: 4px;
+  }
+
+  /* =================================================================
+     INCOME FORM
+     ================================================================= */
+  .income-bar {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    font-size: 14px;
+    color: var(--text);
+    background: var(--surface);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .field input:focus,
+  .field select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  }
+
+  /* =================================================================
+     SECTION HEADERS
+     ================================================================= */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    margin-top: 8px;
+  }
+  .section-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  /* =================================================================
+     CATEGORY GRID
+     ================================================================= */
+  .categories {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .category {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .category:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .category::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: var(--cat-color, var(--primary));
+  }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .category-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .category-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--cat-color, var(--primary));
+    color: white;
+    font-size: 16px;
+  }
+  .category-name {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .category-amounts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .amount-block {
+    background: var(--surface-alt);
+    border-radius: var(--r);
+    padding: 10px 12px;
+  }
+  .amount-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+  }
+  .amount-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .amount-value.balance { color: var(--cat-color, var(--primary)); }
+
+  .category-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .category-actions .btn { font-size: 12px; padding: 6px 8px; }
+
+  .category-history {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+  .category-history h4 {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+  }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-item .desc { color: var(--text); }
+  .history-item .date { color: var(--text-light); font-size: 11px; }
+  .history-item .amt { font-weight: 700; }
+  .history-item .amt.add { color: var(--success); }
+  .history-item .amt.remove { color: var(--danger); }
+
+  /* Scrollbar */
+  .category-history::-webkit-scrollbar { width: 4px; }
+  .category-history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* =================================================================
+     HISTORY SECTION
+     ================================================================= */
+  .history-panel {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .history-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .history-filters .field { flex: 1; min-width: 140px; }
+
+  .history-list {
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  .history-list::-webkit-scrollbar { width: 6px; }
+  .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .history-row {
+    display: grid;
+    grid-template-columns: 90px 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: var(--r);
+    transition: background 0.15s ease;
+  }
+  .history-row:hover { background: var(--surface-alt); }
+  .history-row + .history-row { border-top: 1px solid var(--border); }
+
+  .history-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .history-type.income { background: #d1fae5; color: #065f46; }
+  .history-type.allocate { background: #dbeafe; color: #1e40af; }
+  .history-type.remove { background: #fee2e2; color: #991b1b; }
+  .history-type.modify { background: #fef3c7; color: #92400e; }
+  .history-type.clear { background: #f3f4f6; color: #374151; }
+
+  .history-desc { font-size: 14px; color: var(--text); }
+  .history-amount { font-weight: 700; font-size: 14px; }
+  .history-amount.add { color: var(--success); }
+  .history-amount.remove { color: var(--danger); }
+  .history-date { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+  /* =================================================================
+     MODAL
+     ================================================================= */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: var(--shadow-lg);
+    animation: slideIn 0.18s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateY(-8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .modal p { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; }
+  .modal .field { margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+
+  /* =================================================================
+     TOAST
+     ================================================================= */
+  .toast-stack {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+  .toast {
+    background: var(--text);
+    color: white;
+    padding: 10px 16px;
+    border-radius: var(--r);
+    font-size: 14px;
+    box-shadow: var(--shadow-lg);
+    animation: toastIn 0.2s ease;
+  }
+  .toast.success { background: var(--success); }
+  .toast.danger { background: var(--danger); }
+  .toast.warning { background: var(--warning); }
+  @keyframes toastIn {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* =================================================================
+     EMPTY STATE
+     ================================================================= */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+  }
+  .empty-state-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+    opacity: 0.5;
+  }
+
+  /* =================================================================
+     AUTH SECTION
+     ================================================================= */
+  .auth-section {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    max-width: 400px;
+    margin: 50px auto;
+    text-align: center;
+  }
+  .auth-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .auth-section .field {
+    margin-bottom: 12px;
+    text-align: left;
+  }
+
+  /* =================================================================
+     RESPONSIVE
+     ================================================================= */
+  @media (max-width: 1024px) {
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .categories { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .app { padding: 16px; }
+    .summary { grid-template-columns: 1fr; }
+    .categories { grid-template-columns: 1fr; }
+    .income-bar { grid-template-columns: 1fr; }
+    .history-row { grid-template-columns: 70px 1fr; row-gap: 4px; }
+    .history-row .history-amount,
+    .history-row .history-date { grid-column: 2; }
+  }
+
+  /* =================================================================
+     PIE CHART
+     ================================================================= */
+  .chart-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .chart-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .pie-wrap { display: flex; align-items: center; gap: 16px; }
+  .pie-svg { flex-shrink: 0; }
+  .pie-legend { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .pie-legend-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+  .pie-legend-left { display: flex; align-items: center; gap: 8px; }
+  .pie-legend-dot {
+    width: 10px; height: 10px; border-radius: 3px;
+  }
+  .pie-legend-pct { font-weight: 700; color: var(--text-muted); }
+
+  @media (max-width: 1024px) {
+    .chart-row { grid-template-columns: 1fr; }
+  }
+
+  .loader {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(79, 70, 229, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--primary);
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+<!-- AUTH MODAL -->
+<div id="authSection" class="auth-section">
+  <h2>Business Income Tracker</h2>
+  <p style="margin-bottom: 20px; color: var(--text-muted);">Sign in to sync your data online</p>
+  
+  <div class="field">
+    <label for="authEmail">Email</label>
+    <input type="email" id="authEmail" placeholder="your@email.com" />
+  </div>
+  <div class="field">
+    <label for="authPassword">Password</label>
+    <input type="password" id="authPassword" placeholder="••••••••" />
+  </div>
+  
+  <div style="display: flex; gap: 8px;">
+    <button class="btn btn-primary btn-block" id="signupBtn">Sign Up</button>
+    <button class="btn btn-primary btn-block" id="loginBtn">Login</button>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display: none;">
+  <!-- ====================== HEADER ====================== -->
+  <header class="app-header">
+    <div class="app-title">
+      <div class="logo">$</div>
+      <div>
+        <h1>Business Income Allocator</h1>
+        <p>Track income, allocate across categories, monitor every transaction (Firebase Sync)</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="auth-status logged-in" id="authStatus">Loading...</div>
+      <button class="btn" id="syncBtn" title="Sync with Firebase">🔄 Sync</button>
+      <button class="btn" id="undoBtn" title="Undo last action">↶ Undo</button>
+      <button class="btn" id="exportBtn">⬇ Export</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none" />
+      <button class="btn" id="importBtn">⬆ Import</button>
+      <button class="btn btn-danger" id="clearBtn">🗑 Clear All</button>
+      <button class="btn btn-danger" id="logoutBtn">Logout</button>
+    </div>
+  </header>
+
+  <!-- ====================== SUMMARY ====================== -->
+  <section class="summary">
+    <div class="stat-card income">
+      <div class="stat-label">Total Income</div>
+      <div class="stat-value" id="statIncome">0</div>
+      <div class="stat-sub" id="statIncomeSub">No income recorded yet</div>
+    </div>
+    <div class="stat-card allocated">
+      <div class="stat-label">Total Allocated</div>
+      <div class="stat-value" id="statAllocated">0</div>
+      <div class="stat-sub" id="statAllocatedSub">Across all categories</div>
+    </div>
+    <div class="stat-card unallocated">
+      <div class="stat-label">Unallocated</div>
+      <div class="stat-value" id="statUnallocated">0</div>
+      <div class="stat-sub" id="statUnallocatedSub">Available to assign</div>
+    </div>
+    <div class="stat-card spent">
+      <div class="stat-label">Total Spent</div>
+      <div class="stat-value" id="statSpent">0</div>
+      <div class="stat-sub" id="statSpentSub">Removed from categories</div>
+    </div>
+  </section>
+
+  <!-- ====================== INCOME BAR ====================== -->
+  <form class="income-bar" id="incomeForm" autocomplete="off">
+    <div class="field">
+      <label for="incomeAmount">Income Amount</label>
+      <input type="number" id="incomeAmount" min="1" step="any" placeholder="e.g. 3000000" required />
+    </div>
+    <div class="field">
+      <label for="incomeDate">Date Received</label>
+      <input type="date" id="incomeDate" required />
+    </div>
+    <button type="submit" class="btn btn-primary">+ Add Income</button>
+  </form>
+
+  <!-- ====================== PIE + SUMMARY ====================== -->
+  <section class="chart-row">
+    <div class="chart-card">
+      <h3>Allocation Breakdown</h3>
+      <div class="pie-wrap" id="pieWrap">
+        <svg class="pie-svg" id="pieChart" viewBox="0 0 200 200" width="160" height="160"></svg>
+        <div class="pie-legend" id="pieLegend"></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Quick Stats</h3>
+      <div id="quickStats" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ====================== CATEGORIES ====================== -->
+  <div class="section-header">
+    <h2>Categories</h2>
+    <span style="font-size:13px;color:var(--text-muted)" id="catCount">0 categories</span>
+  </div>
+  <section class="categories" id="categories"></section>
+
+  <!-- ====================== HISTORY ====================== -->
+  <div class="section-header">
+    <h2>Transaction History</h2>
+    <button class="btn btn-sm" id="exportCsvBtn">Export CSV</button>
+  </div>
+  <section class="history-panel">
+    <div class="history-filters">
+      <div class="field">
+        <label for="filterType">Type</label>
+        <select id="filterType">
+          <option value="">All types</option>
+          <option value="income_added">Income Added</option>
+          <option value="allocated">Allocated</option>
+          <option value="removed">Removed</option>
+          <option value="modified">Modified</option>
+          <option value="cleared">Cleared</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="filterCategory">Category</label>
+        <select id="filterCategory">
+          <option value="">All categories</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="filterFrom">From</label>
+        <input type="date" id="filterFrom" />
+      </div>
+      <div class="field">
+        <label for="filterTo">To</label>
+        <input type="date" id="filterTo" />
+      </div>
+      <div class="field" style="display:flex;align-items:flex-end">
+        <button class="btn btn-sm btn-block" id="filterReset">Reset</button>
+      </div>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </section>
+</div>
+
+<!-- ====================== MODAL ====================== -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modal">
+    <h3 id="modalTitle">Edit</h3>
+    <p id="modalDesc">Make changes below</p>
+    <div id="modalContent"></div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+  /* ============================================================
+     FIREBASE CONFIGURATION - UPDATE WITH YOUR CONFIG
+     ============================================================ */
+  const firebaseConfig = {
+    apiKey: "AIzaSyDummyKeyReplaceWithYours",
+    authDomain: "your-app.firebaseapp.com",
+    projectId: "your-project-id",
+    storageBucket: "your-app.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abcdef123456"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  /* ============================================================
+     DATA MODEL & DEFAULTS
+     ============================================================ */
+  const CATEGORY_META = {
+    savings:       { name: "Savings",           icon: "🏦", color: "#10b981", defaultAllocated: 0 },
+    rent:          { name: "Rent",              icon: "🏠", color: "#3b82f6", defaultAllocated: 0 },
+    salaries:      { name: "Employee Salaries", icon: "👥", color: "#8b5cf6", defaultAllocated: 0 },
+    utilities:     { name: "Utilities",         icon: "💡", color: "#f59e0b", defaultAllocated: 0 },
+    operations:    { name: "Business Operations", icon: "⚙️", color: "#06b6d4", defaultAllocated: 0 },
+    miscellaneous: { name: "Miscellaneous",     icon: "📦", color: "#ec4899", defaultAllocated: 0 },
+  };
+
+  const CATEGORY_KEYS = Object.keys(CATEGORY_META);
+
+  /* ============================================================
+     STATE & UI ELEMENTS
+     ============================================================ */
+  let state = makeDefaultState();
+  let currentUser = null;
+  let dataUnsubscribe = null;
+
+  function makeDefaultState() {
+    const categories = {};
+    CATEGORY_KEYS.forEach((key) => {
+      categories[key] = {
+        allocated: CATEGORY_META[key].defaultAllocated,
+        balance: CATEGORY_META[key].defaultAllocated,
+        history: [],
+      };
+    });
+    return {
+      totalIncome: 0,
+      totalSpent: 0,
+      incomeEntries: [],
+      categories,
+      history: [],
+      lastAction: null,
+      lastSync: new Date().toISOString(),
+    };
+  }
+
+  /* ============================================================
+     UTILITIES
+     ============================================================ */
+  function fmt(n) {
+    if (typeof n !== "number" || isNaN(n)) n = 0;
+    return Math.round(n).toLocaleString();
+  }
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[c]));
+  }
+
+  function showToast(msg, type = "success") {
+    const stack = document.getElementById("toastStack");
+    const el = document.createElement("div");
+    el.className = "toast " + type;
+    el.textContent = msg;
+    stack.appendChild(el);
+    setTimeout(() => {
+      el.style.transition = "opacity 0.3s, transform 0.3s";
+      el.style.opacity = "0";
+      el.style.transform = "translateX(20px)";
+      setTimeout(() => el.remove(), 300);
+    }, 2400);
+  }
+
+  /* ============================================================
+     FIREBASE & AUTHENTICATION
+     ============================================================ */
+  async function signup() {
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value.trim();
+
+    if (!email || !password) {
+      showToast("Please enter email and password", "danger");
+      return;
+    }
+
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      showToast("Account created successfully!", "success");
+    } catch (error) {
+      showToast("Signup failed: " + error.message, "danger");
+    }
+  }
+
+  async function login() {
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value.trim();
+
+    if (!email || !password) {
+      showToast("Please enter email and password", "danger");
+      return;
+    }
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      showToast("Logged in successfully!", "success");
+    } catch (error) {
+      showToast("Login failed: " + error.message, "danger");
+    }
+  }
+
+  async function logout() {
+    try {
+      await signOut(auth);
+      showToast("Logged out", "success");
+    } catch (error) {
+      showToast("Logout failed: " + error.message, "danger");
+    }
+  }
+
+  async function saveToFirebase() {
+    if (!currentUser) return;
+    try {
+      state.lastSync = new Date().toISOString();
+      await setDoc(doc(db, "users", currentUser.uid, "data", "state"), state);
+      showToast("Data saved to Firebase ☁️", "success");
+    } catch (error) {
+      showToast("Failed to save to Firebase: " + error.message, "danger");
+    }
+  }
+
+  function subscribeToFirebaseData() {
+    if (!currentUser || dataUnsubscribe) return;
+
+    dataUnsubscribe = onSnapshot(
+      doc(db, "users", currentUser.uid, "data", "state"),
+      (doc) => {
+        if (doc.exists()) {
+          state = doc.data();
+          renderAll();
+          showToast("Data loaded from Firebase ☁️", "success");
+        }
+      },
+      (error) => {
+        console.error("Error loading data:", error);
+        showToast("Error loading Firebase data", "danger");
+      }
+    );
+  }
+
+  // Monitor authentication state
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+
+    if (user) {
+      // User is logged in
+      document.getElementById("authSection").style.display = "none";
+      document.getElementById("mainApp").style.display = "block";
+      document.getElementById("authStatus").textContent = `Logged in: ${user.email}`;
+      
+      // Subscribe to real-time Firebase data
+      if (dataUnsubscribe) dataUnsubscribe();
+      subscribeToFirebaseData();
+    } else {
+      // User is logged out
+      document.getElementById("authSection").style.display = "block";
+      document.getElementById("mainApp").style.display = "none";
+      document.getElementById("authStatus").textContent = "Not logged in";
+      
+      // Unsubscribe from Firebase
+      if (dataUnsubscribe) {
+        dataUnsubscribe();
+        dataUnsubscribe = null;
+      }
+    }
+  });
+
+  /* ============================================================
+     CORE ACTIONS
+     ============================================================ */
+  function addIncome(amount, date) {
+    if (!(amount > 0)) return showToast("Income must be positive", "danger");
+    if (!date) return showToast("Date is required", "danger");
+
+    const id = uid();
+    const ts = Date.now();
+    state.incomeEntries.push({ id, amount, date, timestamp: ts });
+    state.totalIncome += amount;
+
+    addHistory({
+      type: "income_added",
+      amount,
+      date,
+      description: `Income of ${fmt(amount)} added on ${date}`,
+    });
+
+    setLastAction({ kind: "addIncome", entryId: id });
+    saveToFirebase();
+    renderAll();
+    showToast(`Added income of ${fmt(amount)}`, "success");
+  }
+
+  function setAllocation(catKey, newAllocated) {
+    if (isNaN(newAllocated) || newAllocated < 0) {
+      return showToast("Allocation must be a non-negative number", "danger");
+    }
+    const cat = state.categories[catKey];
+    const prevAllocated = cat.allocated;
+    const prevBalance = cat.balance;
+
+    cat.allocated = newAllocated;
+    cat.balance = newAllocated;
+
+    cat.history.push({
+      type: "modified",
+      amount: newAllocated,
+      date: todayStr(),
+      description: `Allocation set to ${fmt(newAllocated)}`,
+      previousBalance: prevBalance,
+      newBalance: newAllocated,
+    });
+
+    addHistory({
+      type: "modified",
+      category: catKey,
+      amount: newAllocated,
+      date: todayStr(),
+      previousBalance: prevBalance,
+      newBalance: newAllocated,
+      description: `${CATEGORY_META[catKey].name} allocation set to ${fmt(newAllocated)}`,
+    });
+
+    setLastAction({ kind: "setAllocation", catKey, prevAllocated, prevBalance });
+    saveToFirebase();
+    renderAll();
+    showToast(`${CATEGORY_META[catKey].name} allocation updated`);
+  }
+
+  function removeFromCategory(catKey, amount) {
+    if (!(amount > 0)) return showToast("Amount must be positive", "danger");
+    const cat = state.categories[catKey];
+    if (amount > cat.balance) {
+      return showToast(
+        `Cannot remove ${fmt(amount)} from ${CATEGORY_META[catKey].name} — only ${fmt(cat.balance)} available`,
+        "danger"
+      );
+    }
+
+    const prevBalance = cat.balance;
+    cat.balance -= amount;
+    cat.allocated = cat.balance;
+    state.totalIncome -= amount;
+    state.totalSpent += amount;
+
+    cat.history.push({
+      type: "removed",
+      amount,
+      date: todayStr(),
+      description: `${fmt(amount)} removed from ${CATEGORY_META[catKey].name}`,
+      previousBalance: prevBalance,
+      newBalance: cat.balance,
+    });
+
+    addHistory({
+      type: "removed",
+      category: catKey,
+      amount,
+      date: todayStr(),
+      previousBalance: prevBalance,
+      newBalance: cat.balance,
+      description: `${fmt(amount)} removed from ${CATEGORY_META[catKey].name} on ${todayStr()}`,
+    });
+
+    setLastAction({
+      kind: "removeFromCategory",
+      catKey,
+      amount,
+      prevBalance,
+      prevTotalIncome: state.totalIncome + amount,
+    });
+    saveToFirebase();
+    renderAll();
+    showToast(`Removed ${fmt(amount)} from ${CATEGORY_META[catKey].name}`, "warning");
+  }
+
+  function allocateToCategory(catKey, amount) {
+    if (!(amount > 0)) return showToast("Amount must be positive", "danger");
+    const unallocated = computeUnallocated();
+    if (amount > unallocated) {
+      return showToast(
+        `Cannot allocate ${fmt(amount)} — only ${fmt(unallocated)} unallocated`,
+        "danger"
+      );
+    }
+
+    const cat = state.categories[catKey];
+    const prevBalance = cat.balance;
+    cat.balance += amount;
+    cat.allocated = cat.balance;
+
+    cat.history.push({
+      type: "allocated",
+      amount,
+      date: todayStr(),
+      description: `${fmt(amount)} allocated to ${CATEGORY_META[catKey].name}`,
+      previousBalance: prevBalance,
+      newBalance: cat.balance,
+    });
+
+    addHistory({
+      type: "allocated",
+      category: catKey,
+      amount,
+      date: todayStr(),
+      previousBalance: prevBalance,
+      newBalance: cat.balance,
+      description: `${fmt(amount)} allocated to ${CATEGORY_META[catKey].name} on ${todayStr()}`,
+    });
+
+    setLastAction({ kind: "allocateToCategory", catKey, amount, prevBalance });
+    saveToFirebase();
+    renderAll();
+    showToast(`Allocated ${fmt(amount)} to ${CATEGORY_META[catKey].name}`);
+  }
+
+  function addHistory(entry) {
+    entry.id = uid();
+    entry.timestamp = Date.now();
+    state.history.unshift(entry);
+  }
+
+  function setLastAction(action) {
+    state.lastAction = action;
+  }
+
+  function undoLast() {
+    const a = state.lastAction;
+    if (!a) return showToast("Nothing to undo", "warning");
+    switch (a.kind) {
+      case "addIncome":
+        state.totalIncome -= a.amount;
+        state.incomeEntries = state.incomeEntries.filter((e) => e.id !== a.entryId);
+        state.history = state.history.filter((e) => e.type !== "income_added");
+        break;
+      case "allocateToCategory":
+        const cat1 = state.categories[a.catKey];
+        cat1.balance = a.prevBalance;
+        cat1.allocated = a.prevBalance;
+        cat1.history.pop();
+        state.history = state.history.filter((e) => !(e.type === "allocated" && e.category === a.catKey && e.amount === a.amount));
+        break;
+      case "removeFromCategory":
+        const cat2 = state.categories[a.catKey];
+        cat2.balance = a.prevBalance;
+        cat2.allocated = a.prevBalance;
+        cat2.history.pop();
+        state.totalIncome = a.prevTotalIncome;
+        state.totalSpent -= a.amount;
+        state.history = state.history.filter((e) => !(e.type === "removed" && e.category === a.catKey && e.amount === a.amount));
+        break;
+      case "setAllocation":
+        const cat3 = state.categories[a.catKey];
+        cat3.allocated = a.prevAllocated;
+        cat3.balance = a.prevBalance;
+        cat3.history.pop();
+        state.history = state.history.filter((e) => !(e.type === "modified" && e.category === a.catKey));
+        break;
+    }
+    state.lastAction = null;
+    saveToFirebase();
+    renderAll();
+    showToast("Action undone", "success");
+  }
+
+  function computeUnallocated() {
+    let allocated = 0;
+    CATEGORY_KEYS.forEach((key) => {
+      allocated += state.categories[key].balance;
+    });
+    return state.totalIncome - allocated;
+  }
+
+  function clearAll() {
+    if (!confirm("Are you sure you want to clear all data? This cannot be undone.")) return;
+    state = makeDefaultState();
+    addHistory({
+      type: "cleared",
+      amount: 0,
+      date: todayStr(),
+      description: "All data cleared",
+    });
+    saveToFirebase();
+    renderAll();
+    showToast("All data cleared", "success");
+  }
+
+  /* ============================================================
+     RENDERING
+     ============================================================ */
+  function renderAll() {
+    renderStats();
+    renderCategories();
+    renderHistory();
+    renderPie();
+    renderQuickStats();
+  }
+
+  function renderStats() {
+    const allocated = CATEGORY_KEYS.reduce((sum, key) => sum + state.categories[key].balance, 0);
+    const unallocated = state.totalIncome - allocated;
+
+    document.getElementById("statIncome").textContent = fmt(state.totalIncome);
+    document.getElementById("statIncomeSub").textContent = state.incomeEntries.length ? `${state.incomeEntries.length} entries` : "No income recorded yet";
+
+    document.getElementById("statAllocated").textContent = fmt(allocated);
+    document.getElementById("statAllocatedSub").textContent = "Across all categories";
+
+    document.getElementById("statUnallocated").textContent = fmt(unallocated);
+    document.getElementById("statUnallocatedSub").textContent = unallocated >= 0 ? "Available to assign" : "Over-allocated";
+
+    document.getElementById("statSpent").textContent = fmt(state.totalSpent);
+    document.getElementById("statSpentSub").textContent = state.totalSpent > 0 ? "Removed from categories" : "No expenses yet";
+  }
+
+  function renderCategories() {
+    const container = document.getElementById("categories");
+    container.innerHTML = "";
+
+    CATEGORY_KEYS.forEach((key) => {
+      const cat = state.categories[key];
+      const meta = CATEGORY_META[key];
+      const el = document.createElement("div");
+      el.className = "category";
+      el.style.setProperty("--cat-color", meta.color);
+
+      const historyHtml = cat.history.length
+        ? cat.history.slice(0, 3).map((h) => `
+            <div class="history-item">
+              <span class="desc">${h.description}</span>
+              <span class="amt ${h.type === 'removed' ? 'remove' : 'add'}">${fmt(h.amount)}</span>
+            </div>
+          `).join("")
+        : `<div style="color: var(--text-light); font-size: 12px;">No history</div>`;
+
+      el.innerHTML = `
+        <div class="category-header">
+          <div class="category-title">
+            <div class="category-icon">${meta.icon}</div>
+            <div class="category-name">${meta.name}</div>
+          </div>
+        </div>
+        <div class="category-amounts">
+          <div class="amount-block">
+            <div class="amount-label">Allocated</div>
+            <div class="amount-value">${fmt(cat.allocated)}</div>
+          </div>
+          <div class="amount-block">
+            <div class="amount-label">Balance</div>
+            <div class="amount-value balance">${fmt(cat.balance)}</div>
+          </div>
+        </div>
+        <div class="category-actions">
+          <button class="btn" data-action="allocate" data-key="${key}">Allocate</button>
+          <button class="btn" data-action="remove" data-key="${key}">Remove</button>
+          <button class="btn" data-action="modify" data-key="${key}">Modify</button>
+        </div>
+        <div class="category-history">
+          <h4>Recent</h4>
+          ${historyHtml}
+        </div>
+      `;
+
+      container.appendChild(el);
+    });
+
+    // Attach event listeners
+    container.querySelectorAll("[data-action]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const action = e.target.dataset.action;
+        const key = e.target.dataset.key;
+        switch (action) {
+          case "allocate":
+            showAllocateModal(key);
+            break;
+          case "remove":
+            showRemoveModal(key);
+            break;
+          case "modify":
+            showModifyModal(key);
+            break;
+        }
+      });
+    });
+
+    document.getElementById("catCount").textContent = `${CATEGORY_KEYS.length} categories`;
+  }
+
+  function renderHistory() {
+    const typeFilter = document.getElementById("filterType").value;
+    const catFilter = document.getElementById("filterCategory").value;
+    const fromDate = document.getElementById("filterFrom").value;
+    const toDate = document.getElementById("filterTo").value;
+
+    let filtered = state.history;
+
+    if (typeFilter) filtered = filtered.filter((h) => h.type === typeFilter);
+    if (catFilter) filtered = filtered.filter((h) => h.category === catFilter);
+    if (fromDate) filtered = filtered.filter((h) => h.date >= fromDate);
+    if (toDate) filtered = filtered.filter((h) => h.date <= toDate);
+
+    const historyHtml = filtered.length
+      ? filtered.map((h) => {
+          const typeClass = {
+            income_added: "income",
+            allocated: "allocate",
+            removed: "remove",
+            modified: "modify",
+            cleared: "clear",
+          }[h.type] || "income";
+
+          return `
+            <div class="history-row">
+              <div class="history-type ${typeClass}">${h.type === "income_added" ? "Income" : h.type.charAt(0).toUpperCase() + h.type.slice(1)}</div>
+              <div class="history-desc">${escapeHtml(h.description)}</div>
+              <div class="history-amount ${h.type === "removed" ? "remove" : "add"}">${fmt(h.amount)}</div>
+              <div class="history-date">${h.date}</div>
+            </div>
+          `;
+        }).join("")
+      : `<div class="empty-state"><div class="empty-state-icon">📭</div>No transactions</div>`;
+
+    document.getElementById("historyList").innerHTML = historyHtml;
+
+    // Update category filter
+    const categorySelect = document.getElementById("filterCategory");
+    const existingCategories = new Set([...categorySelect.querySelectorAll("option")].slice(1).map((o) => o.value));
+    const usedCategories = new Set(state.history.filter((h) => h.category).map((h) => h.category));
+
+    usedCategories.forEach((cat) => {
+      if (!existingCategories.has(cat)) {
+        const opt = document.createElement("option");
+        opt.value = cat;
+        opt.textContent = CATEGORY_META[cat].name;
+        categorySelect.appendChild(opt);
+      }
+    });
+  }
+
+  function renderPie() {
+    const svg = document.getElementById("pieChart");
+    const legend = document.getElementById("pieLegend");
+    svg.innerHTML = "";
+    legend.innerHTML = "";
+
+    const allocated = CATEGORY_KEYS.map((key) => ({
+      key,
+      balance: state.categories[key].balance,
+    })).filter((c) => c.balance > 0);
+
+    const total = allocated.reduce((sum, c) => sum + c.balance, 0);
+
+    if (total === 0) {
+      legend.innerHTML = `<div style="color: var(--text-muted); font-size: 12px;">No allocations yet</div>`;
+      return;
+    }
+
+    let currentAngle = 0;
+    allocated.forEach((cat, idx) => {
+      const percentage = (cat.balance / total) * 100;
+      const angle = (cat.balance / total) * 360;
+
+      const startAngle = currentAngle * (Math.PI / 180);
+      const endAngle = (currentAngle + angle) * (Math.PI / 180);
+
+      const x1 = 100 + 80 * Math.cos(startAngle);
+      const y1 = 100 + 80 * Math.sin(startAngle);
+      const x2 = 100 + 80 * Math.cos(endAngle);
+      const y2 = 100 + 80 * Math.sin(endAngle);
+
+      const largeArc = angle > 180 ? 1 : 0;
+
+      const pathData = [
+        `M 100 100`,
+        `L ${x1} ${y1}`,
+        `A 80 80 0 ${largeArc} 1 ${x2} ${y2}`,
+        `Z`,
+      ].join(" ");
+
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", CATEGORY_META[cat.key].color);
+      path.setAttribute("stroke", "white");
+      path.setAttribute("stroke-width", "2");
+      svg.appendChild(path);
+
+      const li = document.createElement("div");
+      li.className = "pie-legend-item";
+      li.innerHTML = `
+        <div class="pie-legend-left">
+          <div class="pie-legend-dot" style="background: ${CATEGORY_META[cat.key].color};"></div>
+          <span>${CATEGORY_META[cat.key].name}</span>
+        </div>
+        <div class="pie-legend-pct">${percentage.toFixed(1)}%</div>
+      `;
+      legend.appendChild(li);
+
+      currentAngle += angle;
+    });
+  }
+
+  function renderQuickStats() {
+    const container = document.getElementById("quickStats");
+    container.innerHTML = `
+      <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: var(--surface-alt); border-radius: var(--r);">
+        <span style="color: var(--text-muted); font-size: 12px;">Income Entries</span>
+        <span style="font-weight: 700;">${state.incomeEntries.length}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: var(--surface-alt); border-radius: var(--r);">
+        <span style="color: var(--text-muted); font-size: 12px;">Total Transactions</span>
+        <span style="font-weight: 700;">${state.history.length}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: var(--surface-alt); border-radius: var(--r);">
+        <span style="color: var(--text-muted); font-size: 12px;">Last Sync</span>
+        <span style="font-weight: 700; font-size: 11px;">${new Date(state.lastSync).toLocaleTimeString()}</span>
+      </div>
+    `;
+  }
+
+  /* ============================================================
+     MODALS
+     ============================================================ */
+  function showAllocateModal(catKey) {
+    const unallocated = computeUnallocated();
+    openModal(
+      "Allocate Funds",
+      `How much do you want to allocate to ${CATEGORY_META[catKey].name}? (Available: ${fmt(unallocated)})`,
+      `<div class="field">
+        <label>Amount</label>
+        <input type="number" id="modalAmount" min="0" step="any" placeholder="Enter amount" />
+      </div>`,
+      () => {
+        const amount = parseFloat(document.getElementById("modalAmount").value);
+        if (amount > 0) allocateToCategory(catKey, amount);
+      }
+    );
+  }
+
+  function showRemoveModal(catKey) {
+    const balance = state.categories[catKey].balance;
+    openModal(
+      "Remove Funds",
+      `Remove funds from ${CATEGORY_META[catKey].name}. (Available: ${fmt(balance)})`,
+      `<div class="field">
+        <label>Amount</label>
+        <input type="number" id="modalAmount" min="0" step="any" placeholder="Enter amount" />
+      </div>`,
+      () => {
+        const amount = parseFloat(document.getElementById("modalAmount").value);
+        if (amount > 0) removeFromCategory(catKey, amount);
+      }
+    );
+  }
+
+  function showModifyModal(catKey) {
+    const current = state.categories[catKey].balance;
+    openModal(
+      "Modify Allocation",
+      `Set new allocation for ${CATEGORY_META[catKey].name}. (Current: ${fmt(current)})`,
+      `<div class="field">
+        <label>New Amount</label>
+        <input type="number" id="modalAmount" min="0" step="any" placeholder="Enter amount" value="${current}" />
+      </div>`,
+      () => {
+        const amount = parseFloat(document.getElementById("modalAmount").value);
+        if (!isNaN(amount)) setAllocation(catKey, amount);
+      }
+    );
+  }
+
+  function openModal(title, desc, content, onConfirm) {
+    document.getElementById("modalTitle").textContent = title;
+    document.getElementById("modalDesc").textContent = desc;
+    document.getElementById("modalContent").innerHTML = content;
+    document.getElementById("modalBackdrop").classList.add("active");
+
+    const confirmBtn = document.getElementById("modalConfirm");
+    const cancelBtn = document.getElementById("modalCancel");
+    const backdrop = document.getElementById("modalBackdrop");
+
+    const handleConfirm = () => {
+      onConfirm();
+      closeModal();
+    };
+
+    const handleCancel = () => closeModal();
+
+    confirmBtn.onclick = handleConfirm;
+    cancelBtn.onclick = handleCancel;
+    backdrop.onclick = handleCancel;
+  }
+
+  function closeModal() {
+    document.getElementById("modalBackdrop").classList.remove("active");
+  }
+
+  /* ============================================================
+     EXPORT & IMPORT
+     ============================================================ */
+  function exportData() {
+    const dataStr = JSON.stringify(state, null, 2);
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `income-tracker-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("Data exported", "success");
+  }
+
+  function importData() {
+    document.getElementById("importFile").click();
+  }
+
+  document.getElementById("importFile").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        state = imported;
+        saveToFirebase();
+        renderAll();
+        showToast("Data imported and synced", "success");
+      } catch (err) {
+        showToast("Failed to import: " + err.message, "danger");
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  function exportCSV() {
+    let csv = "Date,Type,Category,Description,Amount\n";
+    state.history.forEach((h) => {
+      csv += `${h.date},"${h.type}","${h.category || ""}","${h.description}",${h.amount}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `income-tracker-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("CSV exported", "success");
+  }
+
+  /* ============================================================
+     EVENT LISTENERS
+     ============================================================ */
+  document.getElementById("incomeForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const amount = parseFloat(document.getElementById("incomeAmount").value);
+    const date = document.getElementById("incomeDate").value;
+    addIncome(amount, date);
+    document.getElementById("incomeForm").reset();
+    document.getElementById("incomeDate").valueAsDate = new Date();
+  });
+
+  document.getElementById("undoBtn").addEventListener("click", undoLast);
+  document.getElementById("exportBtn").addEventListener("click", exportData);
+  document.getElementById("importBtn").addEventListener("click", importData);
+  document.getElementById("exportCsvBtn").addEventListener("click", exportCSV);
+  document.getElementById("clearBtn").addEventListener("click", clearAll);
+  document.getElementById("syncBtn").addEventListener("click", saveToFirebase);
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+
+  document.getElementById("filterReset").addEventListener("click", () => {
+    document.getElementById("filterType").value = "";
+    document.getElementById("filterCategory").value = "";
+    document.getElementById("filterFrom").value = "";
+    document.getElementById("filterTo").value = "";
+    renderHistory();
+  });
+
+  document.getElementById("filterType").addEventListener("change", renderHistory);
+  document.getElementById("filterCategory").addEventListener("change", renderHistory);
+  document.getElementById("filterFrom").addEventListener("change", renderHistory);
+  document.getElementById("filterTo").addEventListener("change", renderHistory);
+
+  document.getElementById("signupBtn").addEventListener("click", signup);
+  document.getElementById("loginBtn").addEventListener("click", login);
+
+  // Set default date to today
+  document.getElementById("incomeDate").valueAsDate = new Date();
+
+  // Initialize
+  renderAll();
+</script>
+</body>
+</html>

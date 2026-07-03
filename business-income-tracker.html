@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Business Income Allocator & Expense Tracker</title>
+<style>
+  /* =================================================================
+     CSS RESET & ROOT VARIABLES
+     ================================================================= */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  :root {
+    /* Color palette */
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --primary-light: #818cf8;
+    --bg: #f3f4f6;
+    --surface: #ffffff;
+    --surface-alt: #f9fafb;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --text-light: #9ca3af;
+    --border: #e5e7eb;
+    --danger: #ef4444;
+    --success: #10b981;
+    --warning: #f59e0b;
+
+    /* Category colors */
+    --cat-savings: #10b981;
+    --cat-rent: #3b82f6;
+    --cat-salaries: #8b5cf6;
+    --cat-utilities: #f59e0b;
+    --cat-operations: #06b6d4;
+    --cat-miscellaneous: #ec4899;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+
+    /* Radius */
+    --r-sm: 6px;
+    --r: 10px;
+    --r-lg: 14px;
+    --r-xl: 20px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+      Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* =================================================================
+     LAYOUT
+     ================================================================= */
+  .app {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  header.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .app-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .app-title .logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    border-radius: var(--r);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .app-title h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .app-title p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* =================================================================
+     BUTTONS
+     ================================================================= */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: var(--r);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface-alt); border-color: #d1d5db; }
+  .btn:active { transform: translateY(1px); }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+  .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+  }
+  .btn-danger:hover { background: #dc2626; border-color: #dc2626; }
+
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-block { width: 100%; }
+
+  /* =================================================================
+     SUMMARY DASHBOARD
+     ================================================================= */
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--primary);
+  }
+  .stat-card.income::before { background: var(--success); }
+  .stat-card.allocated::before { background: var(--primary); }
+  .stat-card.unallocated::before { background: var(--warning); }
+  .stat-card.spent::before { background: var(--danger); }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-light);
+    margin-top: 4px;
+  }
+
+  /* =================================================================
+     INCOME FORM
+     ================================================================= */
+  .income-bar {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    font-size: 14px;
+    color: var(--text);
+    background: var(--surface);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .field input:focus,
+  .field select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  }
+
+  /* =================================================================
+     SECTION HEADERS
+     ================================================================= */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    margin-top: 8px;
+  }
+  .section-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  /* =================================================================
+     CATEGORY GRID
+     ================================================================= */
+  .categories {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .category {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .category:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .category::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: var(--cat-color, var(--primary));
+  }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .category-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .category-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--cat-color, var(--primary));
+    color: white;
+    font-size: 16px;
+  }
+  .category-name {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .category-amounts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .amount-block {
+    background: var(--surface-alt);
+    border-radius: var(--r);
+    padding: 10px 12px;
+  }
+  .amount-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+  }
+  .amount-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .amount-value.balance { color: var(--cat-color, var(--primary)); }
+
+  .category-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .category-actions .btn { font-size: 12px; padding: 6px 8px; }
+
+  .category-history {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+  .category-history h4 {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+  }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-item .desc { color: var(--text); }
+  .history-item .date { color: var(--text-light); font-size: 11px; }
+  .history-item .amt { font-weight: 700; }
+  .history-item .amt.add { color: var(--success); }
+  .history-item .amt.remove { color: var(--danger); }
+
+  /* Scrollbar */
+  .category-history::-webkit-scrollbar { width: 4px; }
+  .category-history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* =================================================================
+     HISTORY SECTION
+     ================================================================= */
+  .history-panel {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .history-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .history-filters .field { flex: 1; min-width: 140px; }
+
+  .history-list {
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  .history-list::-webkit-scrollbar { width: 6px; }
+  .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .history-row {
+    display: grid;
+    grid-template-columns: 90px 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: var(--r);
+    transition: background 0.15s ease;
+  }
+  .history-row:hover { background: var(--surface-alt); }
+  .history-row + .history-row { border-top: 1px solid var(--border); }
+
+  .history-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .history-type.income { background: #d1fae5; color: #065f46; }
+  .history-type.allocate { background: #dbeafe; color: #1e40af; }
+  .history-type.remove { background: #fee2e2; color: #991b1b; }
+  .history-type.modify { background: #fef3c7; color: #92400e; }
+  .history-type.clear { background: #f3f4f6; color: #374151; }
+
+  .history-desc { font-size: 14px; color: var(--text); }
+  .history-amount { font-weight: 700; font-size: 14px; }
+  .history-amount.add { color: var(--success); }
+  .history-amount.remove { color: var(--danger); }
+  .history-date { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+  /* =================================================================
+     MODAL
+     ================================================================= */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: var(--shadow-lg);
+    animation: slideIn 0.18s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateY(-8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .modal p { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; }
+  .modal .field { margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+
+  /* =================================================================
+     TOAST
+     ================================================================= */
+  .toast-stack {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+  .toast {
+    background: var(--text);
+    color: white;
+    padding: 10px 16px;
+    border-radius: var(--r);
+    font-size: 14px;
+    box-shadow: var(--shadow-lg);
+    animation: toastIn 0.2s ease;
+  }
+  .toast.success { background: var(--success); }
+  .toast.danger { background: var(--danger); }
+  .toast.warning { background: var(--warning); }
+  @keyframes toastIn {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* =================================================================
+     EMPTY STATE
+     ================================================================= */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+  }
+  .empty-state-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+    opacity: 0.5;
+  }
+
+  /* =================================================================
+     RESPONSIVE
+     ================================================================= */
+  @media (max-width: 1024px) {
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .categories { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .app { padding: 16px; }
+    .summary { grid-template-columns: 1fr; }
+    .categories { grid-template-columns: 1fr; }
+    .income-bar { grid-template-columns: 1fr; }
+    .history-row { grid-template-columns: 70px 1fr; row-gap: 4px; }
+    .history-row .history-amount,
+    .history-row .history-date { grid-column: 2; }
+  }
+
+  /* =================================================================
+     PIE CHART
+     ================================================================= */
+  .chart-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .chart-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .pie-wrap { display: flex; align-items: center; gap: 16px; }
+  .pie-svg { flex-shrink: 0; }
+  .pie-legend { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .pie-legend-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+  .pie-legend-left { display: flex; align-items: center; gap: 8px; }
+  .pie-legend-dot {
+    width: 10px; height: 10px; border-radius: 3px;
+  }
+  .pie-legend-pct { font-weight: 700; color: var(--text-muted); }
+
+  @media (max-width: 1024px) {
+    .chart-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ====================== HEADER ====================== -->
+  <header class="app-header">
+    <div class="app-title">
+      <div class="logo">$</div>
+      <div>
+        <h1>Business Income Allocator</h1>
+        <p>Track income, allocate across categories, monitor every transaction</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="undoBtn" title="Undo last action">↶ Undo</button>
+      <button class="btn" id="exportBtn">⬇ Export</button>
+      <button class="btn" id="importBtn">⬆ Import</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none" />
+      <button class="btn btn-danger" id="clearBtn">🗑 Clear All</button>
+    </div>
+  </header>
+
+  <!-- ====================== SUMMARY ====================== -->
+  <section class="summary">
+    <div class="stat-card income">
+      <div class="stat-label">Total Income</div>
+      <div class="stat-value" id="statIncome">0</div>
+      <div class="stat-sub" id="statIncomeSub">No income recorded yet</div>
+    </div>
+    <div class="stat-card allocated">
+      <div class="stat-label">Total Allocated</div>
+      <div class="stat-value" id="statAllocated">0</div>
+      <div class="stat-sub" id="statAllocatedSub">Across all categories</div>
+    </div>
+    <div class="stat-card unallocated">
+      <div class="stat-label">Unallocated</div>
+      <div class="stat-value" id="statUnallocated">0</div>
+      <div class="stat-sub" id="statUnallocatedSub">Available to assign</div>
+    </div>
+    <div class="stat-card spent">
+      <div class="stat-label">Total Spent</div>
+      <div class="stat-value" id="statSpent">0</div>
+      <div class="stat-sub" id="statSpentSub">Removed from categories</div>
+    </div>
+  </section>
+
+  <!-- ====================== INCOME BAR ====================== -->
+  <form class="income-bar" id="incomeForm" autocomplete="off">
+    <div class="field">
+      <label for="incomeAmount">Income Amount</label>
+      <input type="number" id="incomeAmount" min="1" step="any" placeholder="e.g. 3000000" required />
+    </div>
+    <div class="field">
+      <label for="incomeDate">Date Received</label>
+      <input type="date" id="incomeDate" required />
+    </div>
+    <button type="submit" class="btn btn-primary">+ Add Income</button>
+  </form>
+
+  <!-- ====================== PIE + SUMMARY ====================== -->
+  <section class="chart-row">
+    <div class="chart-card">
+      <h3>Allocation Breakdown</h3>
+      <div class="pie-wrap" id="pieWrap">
+        <svg class="pie-svg" id="pieChart" viewBox="0 0 200 200" width="160" height="160"></svg>
+        <div class="pie-legend" id="pieLegend"></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Quick Stats</h3>
+      <div id="quickStats" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ====================== CATEGORIES ====================== -->
+  <div class="section-header">
+    <h2>Categories</h2>
+    <span style="font-size:13px;color:var(--text-muted)" id="catCount">0 categories</span>
+  </div>
+  <section class="categories" id="categories"></section>
+
+  <!-- ====================== HISTORY ====================== -->
+  <div class="section-header">
+    <h2>Transaction History</h2>
+    <button class="btn btn-sm" id="exportCsvBtn">Export CSV</button>
+  </div>
+  <section class="history-panel">
+    <div class="history-filters">
+      <div class="field">
+        <label for="filterType">Type</label>
+        <select id="filterType">
+          <option value="">All types</option>
+          <option value="income_added">Income Added</option>
+          <option value="allocated">Allocated</option>
+          <option value="removed">Removed</option>
+          <option value="modified">Modified</option>
+          <option value="cleared">Cleared</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="filterCategory">Category</label>
+        <select id="filterCategory">
+          <option value="">All categories</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="filterFrom">From</label>
+        <input type="date" id="filterFrom" />
+      </div>
+      <div class="field">
+        <label for="filterTo">To</label>
+        <input type="date" id="filterTo" />
+      </div>
+      <div class="field" style="display:flex;align-items:flex-end">
+        <button class="btn btn-sm btn-block" id="filterReset">Reset</button>
+      </div>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </section>
+</div>
+
+<!-- ====================== MODAL ====================== -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modal">
+    <h3 id="modalTitle">Edit</h3>
+    <p id="modalDesc">Make changes below</p>
+    <div id="modalContent"></div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* =================================================================
+   BUSINESS INCOME ALLOCATOR
+   Single-file vanilla JS app with localStorage persistence.
+   ================================================================= */
+
+/* ---------------------- Data Model & Defaults ---------------------- */
+const STORAGE_KEY = "businessIncomeAllocator.v1";
+
+const CATEGORY_META = {
+  savings:       { name: "Savings",           icon: "🏦", color: "#10b981", defaultAllocated: 0 },
+  rent:          { name: "Rent",              icon: "🏠", color: "#3b82f6", defaultAllocated: 0 },
+  salaries:      { name: "Employee Salaries", icon: "👥", color: "#8b5cf6", defaultAllocated: 0 },
+  utilities:     { name: "Utilities",         icon: "💡", color: "#f59e0b", defaultAllocated: 0 },
+  operations:    { name: "Business Operations", icon: "⚙️", color: "#06b6d4", defaultAllocated: 0 },
+  miscellaneous: { name: "Miscellaneous",     icon: "📦", color: "#ec4899", defaultAllocated: 0 },
+};
+
+const CATEGORY_KEYS = Object.keys(CATEGORY_META);
+
+/* Default state factory */
+function makeDefaultState() {
+  const categories = {};
+  CATEGORY_KEYS.forEach((key) => {
+    categories[key] = {
+      allocated: CATEGORY_META[key].defaultAllocated,
+      balance: CATEGORY_META[key].defaultAllocated,
+      history: [],
+    };
+  });
+  return {
+    totalIncome: 0,
+    totalSpent: 0,
+    incomeEntries: [], // {id, amount, date, timestamp}
+    categories,
+    history: [], // master log
+    lastAction: null, // for undo
+  };
+}
+
+/* ---------------------- State Management ---------------------- */
+let state = loadState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return makeDefaultState();
+    const parsed = JSON.parse(raw);
+    // Merge with defaults to handle new fields gracefully
+    const def = makeDefaultState();
+    return {
+      ...def,
+      ...parsed,
+      categories: { ...def.categories, ...(parsed.categories || {}) },
+      history: parsed.history || [],
+      incomeEntries: parsed.incomeEntries || [],
+    };
+  } catch (e) {
+    console.warn("Failed to load state, using default.", e);
+    return makeDefaultState();
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error("Save failed:", e);
+    showToast("Failed to save data", "danger");
+  }
+}
+
+/* ---------------------- Utilities ---------------------- */
+function fmt(n) {
+  // Compact format: 3,000,000
+  if (typeof n !== "number" || isNaN(n)) n = 0;
+  return Math.round(n).toLocaleString();
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[c]));
+}
+
+function showToast(msg, type = "success") {
+  const stack = document.getElementById("toastStack");
+  const el = document.createElement("div");
+  el.className = "toast " + type;
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(() => {
+    el.style.transition = "opacity 0.3s, transform 0.3s";
+    el.style.opacity = "0";
+    el.style.transform = "translateX(20px)";
+    setTimeout(() => el.remove(), 300);
+  }, 2400);
+}
+
+/* ---------------------- Core Actions ---------------------- */
+function addIncome(amount, date) {
+  if (!(amount > 0)) return showToast("Income must be positive", "danger");
+  if (!date) return showToast("Date is required", "danger");
+
+  const id = uid();
+  const ts = Date.now();
+  state.incomeEntries.push({ id, amount, date, timestamp: ts });
+  state.totalIncome += amount;
+
+  // Distribute: add to unallocated pool, allocated category balances stay
+  // (When user changes allocation, money flows from unallocated to category.)
+  // But to honor the example in spec — "categories get initial allocations" —
+  // we treat added income as an unallocated pool that user can later assign.
+
+  addHistory({
+    type: "income_added",
+    amount,
+    date,
+    description: `Income of ${fmt(amount)} added on ${date}`,
+  });
+
+  setLastAction({ kind: "addIncome", entryId: id });
+  saveState();
+  renderAll();
+  showToast(`Added income of ${fmt(amount)}`, "success");
+}
+
+function setAllocation(catKey, newAllocated) {
+  if (isNaN(newAllocated) || newAllocated < 0) {
+    return showToast("Allocation must be a non-negative number", "danger");
+  }
+  const cat = state.categories[catKey];
+  const prevAllocated = cat.allocated;
+  const prevBalance = cat.balance;
+  const diff = newAllocated - prevBalance;
+
+  cat.allocated = newAllocated;
+  cat.balance = newAllocated;
+  // No change to totalIncome — this is internal reallocation.
+
+  cat.history.push({
+    type: "modified",
+    amount: newAllocated,
+    date: todayStr(),
+    description: `Allocation set to ${fmt(newAllocated)}`,
+    previousBalance: prevBalance,
+    newBalance: newAllocated,
+  });
+
+  addHistory({
+    type: "modified",
+    category: catKey,
+    amount: newAllocated,
+    date: todayStr(),
+    previousBalance: prevBalance,
+    newBalance: newAllocated,
+    description: `${CATEGORY_META[catKey].name} allocation set to ${fmt(newAllocated)}`,
+  });
+
+  setLastAction({ kind: "setAllocation", catKey, prevAllocated, prevBalance });
+  saveState();
+  renderAll();
+  showToast(`${CATEGORY_META[catKey].name} allocation updated`);
+}
+
+function removeFromCategory(catKey, amount) {
+  if (!(amount > 0)) return showToast("Amount must be positive", "danger");
+  const cat = state.categories[catKey];
+  if (amount > cat.balance) {
+    return showToast(
+      `Cannot remove ${fmt(amount)} from ${CATEGORY_META[catKey].name} — only ${fmt(cat.balance)} available`,
+      "danger"
+    );
+  }
+
+  const prevBalance = cat.balance;
+  cat.balance -= amount;
+  cat.allocated = cat.balance; // keep allocation in sync with new balance
+  state.totalIncome -= amount;
+  state.totalSpent += amount;
+
+  cat.history.push({
+    type: "removed",
+    amount,
+    date: todayStr(),
+    description: `${fmt(amount)} removed from ${CATEGORY_META[catKey].name}`,
+    previousBalance: prevBalance,
+    newBalance: cat.balance,
+  });
+
+  addHistory({
+    type: "removed",
+    category: catKey,
+    amount,
+    date: todayStr(),
+    previousBalance: prevBalance,
+    newBalance: cat.balance,
+    description: `${fmt(amount)} removed from ${CATEGORY_META[catKey].name} on ${todayStr()}`,
+  });
+
+  setLastAction({
+    kind: "removeFromCategory",
+    catKey,
+    amount,
+    prevBalance,
+    prevTotalIncome: state.totalIncome + amount,
+  });
+  saveState();
+  renderAll();
+  showToast(`Removed ${fmt(amount)} from ${CATEGORY_META[catKey].name}`, "warning");
+}
+
+function allocateToCategory(catKey, amount) {
+  if (!(amount > 0)) return showToast("Amount must be positive", "danger");
+  const unallocated = computeUnallocated();
+  if (amount > unallocated) {
+    return showToast(
+      `Cannot allocate ${fmt(amount)} — only ${fmt(unallocated)} unallocated`,
+      "danger"
+    );
+  }
+
+  const cat = state.categories[catKey];
+  const prevBalance = cat.balance;
+  cat.balance += amount;
+  cat.allocated = cat.balance;
+
+  cat.history.push({
+    type: "allocated",
+    amount,
+    date: todayStr(),
+    description: `${fmt(amount)} allocated to ${CATEGORY_META[catKey].name}`,
+    previousBalance: prevBalance,
+    newBalance: cat.balance,
+  });
+
+  addHistory({
+    type: "allocated",
+    category: catKey,
+    amount,
+    date: todayStr(),
+    previousBalance: prevBalance,
+    newBalance: cat.balance,
+    description: `${fmt(amount)} allocated to ${CATEGORY_META[catKey].name} on ${todayStr()}`,
+  });
+
+  setLastAction({ kind: "allocateToCategory", catKey, amount, prevBalance });
+  saveState();
+  renderAll();
+  showToast(`Allocated ${fmt(amount)} to ${CATEGORY_META[catKey].name}`);
+}
+
+function addHistory(entry) {
+  entry.id = uid();
+  entry.timestamp = Date.now();
+  state.history.unshift(entry); // newest first
+}
+
+function setLastAction(action) {
+  state.lastAction = action;
+}
+
+function undoLast() {
+  const a = state.lastAction;
+  if (!a) return showToast("Nothing to undo", "warning");
+  switch (a.kind) {
+    case "addIncome": {
+      const entry = state.incomeEntries.find((e) => e.id === a.entryId);
+      if (!entry) return showToast("Original action no longer exists", "danger");
+      state.totalIncome -= entry.amount;
+      state.incomeEntries = state.incomeEntries.filter((e) => e.id !== entry.id);
+      state.history = state.history.filter((h) => h.id !== entry.id && !(h.type === "income_added" && h.amount === entry.amount && h.date === entry.date));
+      state.lastAction = null;
+      saveState();
+      renderAll();
+      showToast("Undone: income addition", "warning");
+      break;
+    }
+    case "setAllocation": {
+      const cat = state.categories[a.catKey];
+      cat.allocated = a.prevAllocated;
+      cat.balance = a.prevBalance;
+      state.lastAction = null;
+      saveState();
+      renderAll();
+      showToast("Undone: allocation change", "warning");
+      break;
+    }
+    case "removeFromCategory": {
+      const cat = state.categories[a.catKey];
+      cat.balance = a.prevBalance;
+      cat.allocated = a.prevBalance;
+      state.totalIncome = a.prevTotalIncome;
+      state.totalSpent -= a.amount;
+      state.history = state.history.filter((h) => !(h.type === "removed" && h.category === a.catKey && h.amount === a.amount));
+      cat.history = cat.history.filter((h) => !(h.type === "removed" && h.amount === a.amount));
+      state.lastAction = null;
+      saveState();
+      renderAll();
+      showToast("Undone: removal", "warning");
+      break;
+    }
+    case "allocateToCategory": {
+      const cat = state.categories[a.catKey];
+      cat.balance = a.prevBalance;
+      cat.allocated = a.prevBalance;
+      state.history = state.history.filter((h) => !(h.type === "allocated" && h.category === a.catKey && h.amount === a.amount));
+      cat.history = cat.history.filter((h) => !(h.type === "allocated" && h.amount === a.amount));
+      state.lastAction = null;
+      saveState();
+      renderAll();
+      showToast("Undone: allocation", "warning");
+      break;
+    }
+    default:
+      showToast("Cannot undo this action", "warning");
+  }
+}
+
+function clearAll() {
+  state = makeDefaultState();
+  saveState();
+  renderAll();
+  showToast("All data cleared", "warning");
+}
+
+/* ---------------------- Computed Values ---------------------- */
+function computeTotalAllocated() {
+  return CATEGORY_KEYS.reduce((sum, k) => sum + (state.categories[k].allocated || 0), 0);
+}
+function computeTotalBalances() {
+  return CATEGORY_KEYS.reduce((sum, k) => sum + (state.categories[k].balance || 0), 0);
+}
+function computeUnallocated() {
+  return state.totalIncome - computeTotalBalances();
+}
+
+/* ---------------------- Modal ---------------------- */
+function showModal({ title, desc, fields, confirmLabel = "Confirm", confirmClass = "btn-primary" }) {
+  return new Promise((resolve) => {
+    const backdrop = document.getElementById("modalBackdrop");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalDesc = document.getElementById("modalDesc");
+    const modalContent = document.getElementById("modalContent");
+    const modalCancel = document.getElementById("modalCancel");
+    const modalConfirm = document.getElementById("modalConfirm");
+
+    modalTitle.textContent = title;
+    modalDesc.textContent = desc || "";
+    modalConfirm.textContent = confirmLabel;
+    modalConfirm.className = "btn " + confirmClass;
+    modalContent.innerHTML = "";
+
+    fields.forEach((f) => {
+      const wrap = document.createElement("div");
+      wrap.className = "field";
+      const label = document.createElement("label");
+      label.textContent = f.label;
+      label.htmlFor = "modal_" + f.name;
+      wrap.appendChild(label);
+      const input = document.createElement("input");
+      input.id = "modal_" + f.name;
+      input.type = f.type || "number";
+      if (f.placeholder) input.placeholder = f.placeholder;
+      if (f.value != null) input.value = f.value;
+      if (f.min != null) input.min = f.min;
+      if (f.step != null) input.step = f.step;
+      if (f.max != null) input.max = f.max;
+      input.required = true;
+      wrap.appendChild(input);
+      modalContent.appendChild(wrap);
+    });
+
+    const firstInput = modalContent.querySelector("input");
+    if (firstInput) setTimeout(() => firstInput.focus(), 50);
+
+    backdrop.classList.add("active");
+
+    function close(result) {
+      backdrop.classList.remove("active");
+      modalCancel.removeEventListener("click", onCancel);
+      modalConfirm.removeEventListener("click", onConfirm);
+      backdrop.removeEventListener("click", onBackdrop);
+      resolve(result);
+    }
+    function onCancel() { close(null); }
+    function onConfirm() {
+      const values = {};
+      fields.forEach((f) => {
+        const el = document.getElementById("modal_" + f.name);
+        values[f.name] = el ? el.value : "";
+      });
+      close(values);
+    }
+    function onBackdrop(e) { if (e.target === backdrop) onCancel(); }
+
+    modalCancel.addEventListener("click", onCancel);
+    modalConfirm.addEventListener("click", onConfirm);
+    backdrop.addEventListener("click", onBackdrop);
+  });
+}
+
+/* ---------------------- Render ---------------------- */
+function renderAll() {
+  renderSummary();
+  renderPie();
+  renderQuickStats();
+  renderCategories();
+  renderHistory();
+  renderCategoryFilter();
+}
+
+function renderSummary() {
+  const totalAllocated = computeTotalAllocated();
+  const totalBalances = computeTotalBalances();
+  const unallocated = computeUnallocated();
+  const totalSpent = state.totalSpent || 0;
+
+  document.getElementById("statIncome").textContent = fmt(state.totalIncome);
+  document.getElementById("statAllocated").textContent = fmt(totalBalances);
+  document.getElementById("statUnallocated").textContent = fmt(unallocated);
+  document.getElementById("statSpent").textContent = fmt(totalSpent);
+
+  // Subs
+  const lastIncome = state.incomeEntries[state.incomeEntries.length - 1];
+  document.getElementById("statIncomeSub").textContent = lastIncome
+    ? `Last: ${fmt(lastIncome.amount)} on ${lastIncome.date}`
+    : "No income recorded yet";
+
+  document.getElementById("statAllocatedSub").textContent = `${CATEGORY_KEYS.length} categories tracked`;
+  document.getElementById("statUnallocatedSub").textContent = unallocated >= 0 ? "Available to assign" : "Over-allocated!";
+  document.getElementById("statSpentSub").textContent = `${state.history.filter((h) => h.type === "removed").length} removals`;
+
+  document.getElementById("catCount").textContent = `${CATEGORY_KEYS.length} categories`;
+}
+
+function renderCategories() {
+  const container = document.getElementById("categories");
+  container.innerHTML = "";
+
+  CATEGORY_KEYS.forEach((key) => {
+    const meta = CATEGORY_META[key];
+    const cat = state.categories[key];
+    const card = document.createElement("div");
+    card.className = "category";
+    card.style.setProperty("--cat-color", meta.color);
+    card.innerHTML = `
+      <div class="category-header">
+        <div class="category-title">
+          <div class="category-icon">${meta.icon}</div>
+          <div class="category-name">${escapeHtml(meta.name)}</div>
+        </div>
+      </div>
+      <div class="category-amounts">
+        <div class="amount-block">
+          <div class="amount-label">Allocated</div>
+          <div class="amount-value">${fmt(cat.allocated)}</div>
+        </div>
+        <div class="amount-block">
+          <div class="amount-label">Balance</div>
+          <div class="amount-value balance">${fmt(cat.balance)}</div>
+        </div>
+      </div>
+      <div class="category-actions">
+        <button class="btn btn-sm" data-act="edit" data-cat="${key}">Edit</button>
+        <button class="btn btn-sm" data-act="allocate" data-cat="${key}">+ Add</button>
+        <button class="btn btn-sm btn-danger" data-act="remove" data-cat="${key}">− Remove</button>
+      </div>
+      <div class="category-history">
+        <h4>Recent activity</h4>
+        ${
+          cat.history.length === 0
+            ? `<div class="empty-state" style="padding:14px 0;font-size:12px">No activity yet</div>`
+            : cat.history
+                .slice(-6)
+                .reverse()
+                .map(
+                  (h) => `
+            <div class="history-item">
+              <div>
+                <div class="desc">${escapeHtml(h.description)}</div>
+                <div class="date">${h.date}</div>
+              </div>
+            </div>
+          `
+                )
+                .join("")
+        }
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  // Wire up actions
+  container.querySelectorAll("button[data-act]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const act = btn.dataset.act;
+      const catKey = btn.dataset.cat;
+      handleCategoryAction(act, catKey);
+    });
+  });
+}
+
+async function handleCategoryAction(act, catKey) {
+  const meta = CATEGORY_META[catKey];
+  const cat = state.categories[catKey];
+
+  if (act === "edit") {
+    const res = await showModal({
+      title: `Edit ${meta.name}`,
+      desc: `Update the allocated amount. This reallocates from the unallocated pool.`,
+      fields: [
+        { name: "amount", label: "Allocation Amount", value: cat.allocated, min: 0, step: "any" },
+      ],
+      confirmLabel: "Save",
+    });
+    if (res) setAllocation(catKey, parseFloat(res.amount));
+  }
+
+  if (act === "allocate") {
+    const unallocated = computeUnallocated();
+    const res = await showModal({
+      title: `Allocate to ${meta.name}`,
+      desc: `Move money from unallocated pool (${fmt(unallocated)} available) into this category.`,
+      fields: [{ name: "amount", label: "Amount to Allocate", min: 0, step: "any" }],
+      confirmLabel: "Allocate",
+    });
+    if (res) allocateToCategory(catKey, parseFloat(res.amount));
+  }
+
+  if (act === "remove") {
+    const res = await showModal({
+      title: `Remove from ${meta.name}`,
+      desc: `Remove money from this category. This also reduces total income. Current balance: ${fmt(cat.balance)}`,
+      fields: [{ name: "amount", label: "Amount to Remove", min: 0, step: "any", max: cat.balance }],
+      confirmLabel: "Remove",
+      confirmClass: "btn-danger",
+    });
+    if (res) {
+      const amt = parseFloat(res.amount);
+      if (amt > 100000) {
+        if (!confirm(`You're about to remove ${fmt(amt)} from ${meta.name}. Confirm?`)) return;
+      }
+      removeFromCategory(catKey, amt);
+    }
+  }
+}
+
+function renderHistory() {
+  const list = document.getElementById("historyList");
+  const filterType = document.getElementById("filterType").value;
+  const filterCat = document.getElementById("filterCategory").value;
+  const filterFrom = document.getElementById("filterFrom").value;
+  const filterTo = document.getElementById("filterTo").value;
+
+  let items = state.history.filter((h) => {
+    if (filterType && h.type !== filterType) return false;
+    if (filterCat && h.category !== filterCat) return false;
+    if (filterFrom && h.date < filterFrom) return false;
+    if (filterTo && h.date > filterTo) return false;
+    return true;
+  });
+
+  if (items.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <p>${state.history.length === 0 ? "No transactions yet — add income to get started." : "No transactions match the current filters."}</p>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = items
+    .map((h) => {
+      const amtClass = h.type === "removed" ? "remove" : h.type === "income_added" || h.type === "allocated" ? "add" : "";
+      const amtSign = h.type === "removed" ? "−" : h.type === "income_added" || h.type === "allocated" ? "+" : "";
+      const amt = h.amount != null ? `${amtSign}${fmt(h.amount)}` : "—";
+      return `
+        <div class="history-row">
+          <span class="history-type ${h.type}">${prettyType(h.type)}</span>
+          <span class="history-desc">${escapeHtml(h.description || "")}</span>
+          <span class="history-amount ${amtClass}">${amt}</span>
+          <span class="history-date">${h.date}</span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function prettyType(t) {
+  const map = {
+    income_added: "Income",
+    allocated: "Allocate",
+    removed: "Remove",
+    modified: "Modify",
+    cleared: "Clear",
+  };
+  return map[t] || t;
+}
+
+function renderCategoryFilter() {
+  const sel = document.getElementById("filterCategory");
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All categories</option>';
+  CATEGORY_KEYS.forEach((k) => {
+    const opt = document.createElement("option");
+    opt.value = k;
+    opt.textContent = CATEGORY_META[k].name;
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+
+function renderPie() {
+  const svg = document.getElementById("pieChart");
+  const legend = document.getElementById("pieLegend");
+  svg.innerHTML = "";
+  legend.innerHTML = "";
+
+  const total = computeTotalBalances();
+  if (total === 0) {
+    svg.innerHTML = `
+      <circle cx="100" cy="100" r="80" fill="none" stroke="#e5e7eb" stroke-width="32"/>
+      <text x="100" y="105" text-anchor="middle" fill="#9ca3af" font-size="14">No data</text>
+    `;
+    legend.innerHTML = `<div class="empty-state" style="padding:20px 0;font-size:13px">Add income and allocate to see breakdown</div>`;
+    return;
+  }
+
+  const cx = 100, cy = 100, r = 80;
+  let startAngle = -Math.PI / 2;
+  const entries = CATEGORY_KEYS.map((k) => ({
+    key: k,
+    value: state.categories[k].balance,
+    ...CATEGORY_META[k],
+  })).filter((e) => e.value > 0);
+
+  entries.forEach((e) => {
+    const sliceAngle = (e.value / total) * Math.PI * 2;
+    const endAngle = startAngle + sliceAngle;
+
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const largeArc = sliceAngle > Math.PI ? 1 : 0;
+
+    const path = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", path);
+    p.setAttribute("fill", e.color);
+    p.setAttribute("stroke", "white");
+    p.setAttribute("stroke-width", "2");
+    svg.appendChild(p);
+    startAngle = endAngle;
+  });
+
+  // Donut hole
+  const hole = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  hole.setAttribute("cx", cx);
+  hole.setAttribute("cy", cy);
+  hole.setAttribute("r", 50);
+  hole.setAttribute("fill", "white");
+  svg.appendChild(hole);
+
+  // Center text
+  const totalText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  totalText.setAttribute("x", cx);
+  totalText.setAttribute("y", cy - 2);
+  totalText.setAttribute("text-anchor", "middle");
+  totalText.setAttribute("fill", "#1f2937");
+  totalText.setAttribute("font-size", "14");
+  totalText.setAttribute("font-weight", "700");
+  totalText.textContent = fmt(total);
+  svg.appendChild(totalText);
+
+  const subText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  subText.setAttribute("x", cx);
+  subText.setAttribute("y", cy + 14);
+  subText.setAttribute("text-anchor", "middle");
+  subText.setAttribute("fill", "#6b7280");
+  subText.setAttribute("font-size", "10");
+  subText.textContent = "Allocated";
+  svg.appendChild(subText);
+
+  // Legend
+  entries
+    .sort((a, b) => b.value - a.value)
+    .forEach((e) => {
+      const pct = ((e.value / total) * 100).toFixed(1);
+      const row = document.createElement("div");
+      row.className = "pie-legend-item";
+      row.innerHTML = `
+        <div class="pie-legend-left">
+          <div class="pie-legend-dot" style="background:${e.color}"></div>
+          <span>${e.icon} ${escapeHtml(e.name)}</span>
+        </div>
+        <span class="pie-legend-pct">${pct}%</span>
+      `;
+      legend.appendChild(row);
+    });
+}
+
+function renderQuickStats() {
+  const wrap = document.getElementById("quickStats");
+  const total = computeTotalBalances();
+  const unallocated = computeUnallocated();
+  const totalSpent = state.totalSpent || 0;
+  const txCount = state.history.length;
+  const incomeCount = state.incomeEntries.length;
+  const topCategory = CATEGORY_KEYS
+    .map((k) => ({ k, v: state.categories[k].balance, ...CATEGORY_META[k] }))
+    .filter((c) => c.v > 0)
+    .sort((a, b) => b.v - a.v)[0];
+
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:13px">
+      <span style="color:var(--text-muted)">Income events</span>
+      <strong>${incomeCount}</strong>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px">
+      <span style="color:var(--text-muted)">Total transactions</span>
+      <strong>${txCount}</strong>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px">
+      <span style="color:var(--text-muted)">Average allocation</span>
+      <strong>${fmt(total / CATEGORY_KEYS.length)}</strong>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px">
+      <span style="color:var(--text-muted)">Largest category</span>
+      <strong>${topCategory ? `${topCategory.icon} ${topCategory.name}` : "—"}</strong>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px">
+      <span style="color:var(--text-muted)">Total removed</span>
+      <strong style="color:var(--danger)">${fmt(totalSpent)}</strong>
+    </div>
+  `;
+}
+
+/* ---------------------- Event Wiring ---------------------- */
+document.getElementById("incomeForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const amount = parseFloat(document.getElementById("incomeAmount").value);
+  const date = document.getElementById("incomeDate").value;
+  addIncome(amount, date);
+  e.target.reset();
+  document.getElementById("incomeDate").value = todayStr();
+});
+
+document.getElementById("incomeDate").value = todayStr();
+
+document.getElementById("undoBtn").addEventListener("click", undoLast);
+
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `income-allocator-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Data exported");
+});
+
+document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
+
+function exportCsv() {
+  const rows = [["Date", "Type", "Category", "Amount", "Description"]];
+  // Iterate in chronological order (oldest first)
+  [...state.history].reverse().forEach((h) => {
+    rows.push([
+      h.date,
+      h.type,
+      h.category ? CATEGORY_META[h.category].name : "",
+      h.amount != null ? h.amount : "",
+      (h.description || "").replace(/"/g, '""'),
+    ]);
+  });
+  const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `transactions-${todayStr()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("CSV exported");
+}
+
+document.getElementById("importBtn").addEventListener("click", () => {
+  document.getElementById("importFile").click();
+});
+
+document.getElementById("importFile").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.categories || !data.history) {
+        throw new Error("Invalid file format");
+      }
+      if (!confirm("This will replace all current data. Continue?")) return;
+      state = { ...makeDefaultState(), ...data, lastAction: null };
+      saveState();
+      renderAll();
+      showToast("Data imported");
+    } catch (err) {
+      showToast("Failed to import: " + err.message, "danger");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+  if (confirm("Clear ALL data? This cannot be undone (you can export first).")) {
+    clearAll();
+  }
+});
+
+document.getElementById("filterType").addEventListener("change", renderHistory);
+document.getElementById("filterCategory").addEventListener("change", renderHistory);
+document.getElementById("filterFrom").addEventListener("change", renderHistory);
+document.getElementById("filterTo").addEventListener("change", renderHistory);
+document.getElementById("filterReset").addEventListener("click", () => {
+  document.getElementById("filterType").value = "";
+  document.getElementById("filterCategory").value = "";
+  document.getElementById("filterFrom").value = "";
+  document.getElementById("filterTo").value = "";
+  renderHistory();
+});
+
+/* ---------------------- Init ---------------------- */
+renderAll();
+</script>
+</body>
+</html>

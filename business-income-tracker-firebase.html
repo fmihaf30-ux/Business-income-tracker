@@ -620,19 +620,6 @@
   @media (max-width: 1024px) {
     .chart-row { grid-template-columns: 1fr; }
   }
-
-  .loader {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid rgba(79, 70, 229, 0.3);
-    border-radius: 50%;
-    border-top-color: var(--primary);
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
 </style>
 </head>
 <body>
@@ -663,7 +650,7 @@
       <div class="logo">$</div>
       <div>
         <h1>Business Income Allocator</h1>
-        <p>Track income, allocate across categories, monitor every transaction (Firebase Sync)</p>
+        <p>Track income, allocate across categories, monitor every transaction (Cloud Sync)</p>
       </div>
     </div>
     <div class="header-actions">
@@ -799,19 +786,17 @@
   import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
   /* ============================================================
-     FIREBASE CONFIGURATION - UPDATE WITH YOUR CONFIG
+     FIREBASE CONFIGURATION
      ============================================================ */
-const firebaseConfig = {
-  apiKey: "AIzaSyA4CPpEKpNErdLvz_V4elgO1tB2XDBHtnI",
-  authDomain: "income-tracker-263e1.firebaseapp.com",
-  projectId: "income-tracker-263e1",
-  storageBucket: "income-tracker-263e1.firebasestorage.app",
-  messagingSenderId: "823427163617",
-  appId: "1:823427163617:web:7597a2be4211063136dea0",
-  measurementId: "G-1WDXJJ475N"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyA4CPpEKpNErdLvz_V4elgO1tB2XDBHtnI",
+    authDomain: "income-tracker-263e1.firebaseapp.com",
+    projectId: "income-tracker-263e1",
+    storageBucket: "income-tracker-263e1.appspot.com",
+    messagingSenderId: "823427163617",
+    appId: "1:823427163617:web:7597a2be4211063136dea0"
+  };
 
-  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
@@ -830,9 +815,6 @@ const firebaseConfig = {
 
   const CATEGORY_KEYS = Object.keys(CATEGORY_META);
 
-  /* ============================================================
-     STATE & UI ELEMENTS
-     ============================================================ */
   let state = makeDefaultState();
   let currentUser = null;
   let dataUnsubscribe = null;
@@ -898,7 +880,7 @@ const firebaseConfig = {
   }
 
   /* ============================================================
-     FIREBASE & AUTHENTICATION
+     AUTHENTICATION
      ============================================================ */
   async function signup() {
     const email = document.getElementById("authEmail").value.trim();
@@ -911,7 +893,7 @@ const firebaseConfig = {
 
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      showToast("Account created successfully!", "success");
+      showToast("Account created successfully! Please log in.", "success");
     } catch (error) {
       showToast("Signup failed: " + error.message, "danger");
     }
@@ -947,10 +929,10 @@ const firebaseConfig = {
     if (!currentUser) return;
     try {
       state.lastSync = new Date().toISOString();
-      await setDoc(doc(db, "users", currentUser.uid, "data", "state"), state);
-      showToast("Data saved to Firebase ☁️", "success");
+      await setDoc(doc(db, "company", "sharedState"), state);
+      showToast("Data saved to cloud ☁️", "success");
     } catch (error) {
-      showToast("Failed to save to Firebase: " + error.message, "danger");
+      showToast("Failed to save: " + error.message, "danger");
     }
   }
 
@@ -958,41 +940,33 @@ const firebaseConfig = {
     if (!currentUser || dataUnsubscribe) return;
 
     dataUnsubscribe = onSnapshot(
-      doc(db, "users", currentUser.uid, "data", "state"),
+      doc(db, "company", "sharedState"),
       (doc) => {
         if (doc.exists()) {
           state = doc.data();
           renderAll();
-          showToast("Data loaded from Firebase ☁️", "success");
         }
       },
       (error) => {
         console.error("Error loading data:", error);
-        showToast("Error loading Firebase data", "danger");
       }
     );
   }
 
-  // Monitor authentication state
   onAuthStateChanged(auth, (user) => {
     currentUser = user;
 
     if (user) {
-      // User is logged in
       document.getElementById("authSection").style.display = "none";
       document.getElementById("mainApp").style.display = "block";
       document.getElementById("authStatus").textContent = `Logged in: ${user.email}`;
       
-      // Subscribe to real-time Firebase data
       if (dataUnsubscribe) dataUnsubscribe();
       subscribeToFirebaseData();
     } else {
-      // User is logged out
       document.getElementById("authSection").style.display = "block";
       document.getElementById("mainApp").style.display = "none";
-      document.getElementById("authStatus").textContent = "Not logged in";
       
-      // Unsubscribe from Firebase
       if (dataUnsubscribe) {
         dataUnsubscribe();
         dataUnsubscribe = null;
@@ -1298,7 +1272,6 @@ const firebaseConfig = {
       container.appendChild(el);
     });
 
-    // Attach event listeners
     container.querySelectorAll("[data-action]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const action = e.target.dataset.action;
@@ -1356,7 +1329,6 @@ const firebaseConfig = {
 
     document.getElementById("historyList").innerHTML = historyHtml;
 
-    // Update category filter
     const categorySelect = document.getElementById("filterCategory");
     const existingCategories = new Set([...categorySelect.querySelectorAll("option")].slice(1).map((o) => o.value));
     const usedCategories = new Set(state.history.filter((h) => h.category).map((h) => h.category));
@@ -1618,10 +1590,8 @@ const firebaseConfig = {
   document.getElementById("signupBtn").addEventListener("click", signup);
   document.getElementById("loginBtn").addEventListener("click", login);
 
-  // Set default date to today
   document.getElementById("incomeDate").valueAsDate = new Date();
 
-  // Initialize
   renderAll();
 </script>
 </body>
